@@ -1,0 +1,181 @@
+LEGACY NOTE: The instructions below describe the original German backlog and are no longer maintained. Use `README_codexhive.txt` for the current user guide and ignore the remaining content unless you need historical context.
+
+mit der bald dazu gegeben anleitung will ich dass du folgendes tust:
+  1. eine mcp verbindung von codex von codex (also das ein openai codex cli eine weiter openai codex cli öffnen und
+  steuren kann)
+  2. Agenten script für alle entwicklungs relevanten rollen darunter zumb beispiel: Planer, Constructor, Controler und
+  no viele mehr.
+  3. ich will setup scripte für alles, möglichst dass ein benutzer nur die setups clicken muss und seine codex instanz
+  und die darauf von codex erstellten codex instanzen alle via mcp Model Context Protocol damit verbunden sind.
+
+  hier die anleitung zu mcp und wie du sie mit codex cli verwenden könntest:
+
+Schritt-für-Schritt Anleitung: Model Context Protocol (MCP) mit Codex CLI einrichten
+
+Model Context Protocol (MCP) ist ein Protokoll, mit dem man KI-Modelle (wie OpenAI Codex) mit zusätzlichen Tools und Kontext verbinden kann
+developers.openai.com
+. Dadurch kann Codex z.B. auf externe Dokumentationen zugreifen oder mit Entwicklungswerkzeugen wie Browsern oder Figma interagieren
+developers.openai.com
+. Die folgende Anleitung zeigt Schritt für Schritt, wie Sie MCP in der Codex CLI hinzufügen, automatisiert verbinden, eigene MCP-Server erstellen und Codex darauf zugreifen lassen.
+
+Schritt 1: MCP-Server zur Codex CLI hinzufügen
+
+Um Codex mit einem MCP-Server zu verbinden, müssen Sie diesen in der Codex-Konfiguration eintragen. Es gibt zwei Methoden: über den CLI-Befehl codex mcp oder manuell in der Config-Datei
+developers.openai.com
+.
+
+Über CLI hinzufügen: Führen Sie in der Konsole den Befehl codex mcp add <server-name> -- <Start-Befehl> aus, um einen MCP-Server hinzuzufügen. Optional können mit --env Umgebungsvariablen für den Server gesetzt werden
+developers.openai.com
+. Beispiel – um den kostenlosen Dokumentations-Server Context7 hinzuzufügen:
+
+codex mcp add context7 -- npx -y @upstash/context7-mcp
+
+
+Dieser Befehl trägt Context7 in die Config ein und startet ihn bei Bedarf
+developers.openai.com
+. Alle verfügbaren MCP-Befehle können Sie mit codex mcp --help einsehen
+developers.openai.com
+. Im Terminal-UI (TUI) der Codex CLI können Sie mit dem Kommando /mcp prüfen, welche MCP-Server gerade verbunden sind
+developers.openai.com
+.
+
+Manuell in config.toml: Öffnen Sie die Datei ~/.codex/config.toml und fügen Sie unter [mcp_servers.<Name>] die Serverkonfiguration hinzu
+developers.openai.com
+. Für STDIO-Server (lokale Programme) müssen Sie mindestens command (Befehl zum Starten des Servers) angeben; optional args (Argumente) und env (Umgebungsvariablen)
+developers.openai.com
+. Für HTTP-basierte Server nutzen Sie stattdessen url (Endpunkt des Servers) und ggf. bearer_token für einen Auth-Header
+developers.openai.com
+.
+
+Beispiel für Context7 in der config.toml (STDIO-Server):
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+
+[mcp_servers.context7.env]
+MY_ENV_VAR = "MY_ENV_VALUE"
+
+
+(Die obige Konfiguration entspricht dem CLI-Beispiel und würde Context7 mit einem optionalen Umgebungsvariable starten
+developers.openai.com
+.)
+
+Hinweis: Die MCP-Einstellungen werden in der Config gespeichert und zwischen CLI und IDE geteilt
+developers.openai.com
+. Haben Sie einen Server einmal hinzugefügt, bleibt er aktiv, bis Sie ihn entfernen. Codex lädt die Einträge beim Start automatisch, d.h. konfigurierte STDIO-Server werden beim Start der CLI gestartet und HTTP-Server verbunden
+developers.openai.com
+developers.openai.com
+.
+
+Schritt 2: Automatische Verbindung per Setup-Skript
+
+Um die MCP-Verbindung bequem aufzusetzen, können Sie ein Setup-Skript verwenden. Dieses Skript kann den oben genannten CLI-Befehl ausführen und Codex starten, ohne dass Sie die Schritte manuell durchführen müssen. Gehen Sie folgendermaßen vor:
+
+Setup-Skript erstellen: Legen Sie eine Datei (z.B. setup_mcp.sh) an und machen Sie sie ausführbar. In dieses Skript kommen die benötigten Befehle, um den MCP-Server hinzuzufügen und Codex zu starten. Beispielsweise:
+
+#!/bin/sh
+# MCP-Server (z.B. Context7) hinzufügen und Codex starten
+codex mcp add context7 -- npx -y @upstash/context7-mcp   # trägt den MCP-Server in die Config ein:contentReference[oaicite:14]{index=14}
+codex   # startet die Codex CLI (TUI), welche nun mit dem MCP-Server verbunden ist
+
+
+Dieser Ablauf fügt zuerst den MCP-Server context7 zur Konfiguration hinzu (sofern nicht schon vorhanden) und startet anschließend die Codex-CLI. Sie können das Skript Ihren Bedürfnissen anpassen (z.B. andere Servernamen oder mehrere codex mcp add Befehle nacheinander).
+
+Umgebungsvariablen setzen: Falls Ihr MCP-Server API-Schlüssel oder ähnliche Variablen benötigt, können Sie diese im Skript vor dem codex-Start setzen. Alternativ lassen sie sich in der Config-Datei unter [mcp_servers.<Name>.env] eintragen (siehe Schritt 1)
+developers.openai.com
+.
+
+Automatisieren: Führen Sie das Skript aus, wann immer Sie Codex mit MCP-Unterstützung starten möchten. Sie könnten es z.B. in Ihre Entwicklungsumgebung einbinden, damit die Verbindung immer automatisch hergestellt wird. Da die Konfiguration persistent ist, brauchen Sie codex mcp add in Zukunft nur bei neuen Servern oder geänderter Konfiguration aufzurufen
+developers.openai.com
+.
+
+Schritt 3: Eigenen MCP-Server erstellen und starten
+
+Neben fertigen MCP-Integrationen (wie Context7, Figma etc.) können Sie auch eigene MCP-Server entwickeln. Dies ermöglicht z.B., firmenspezifische Tools oder Datenquellen an Codex anzubinden. Grundsätzlich gibt es zwei Ansätze:
+
+Eigenes Programm (STDIO-Server) schreiben: Implementieren Sie einen JSON-RPC-Server, der das MCP-Protokoll spricht. Ihr Server muss auf Eingaben (Requests) reagieren und Ausgaben gemäß MCP-Format liefern. Typischerweise meldet sich ein MCP-Server beim Start mit einer Liste seiner Tools/Funktionalitäten an. (Fortgeschritten: Orientieren Sie sich an bestehenden MCP-Projekten, um Format und Ablauf zu verstehen.)
+
+Codex selbst als MCP-Server nutzen: Die Codex CLI kann auch als MCP-Server laufen, um anderen Clients ihre Funktionen bereitzustellen. So könnten Sie z.B. einen eigenen Agenten bauen, der Codex als Tool verwendet
+developers.openai.com
+. Um Codex als Server zu starten, führen Sie in einem Terminal folgenden Befehl aus:
+
+codex mcp-server
+
+
+Damit wird ein MCP-Server gestartet, der die Codex-Funktionalität kapselt
+developers.openai.com
+. OpenAI stellt zudem einen Model Context Protocol Inspector bereit, mit dem Sie MCP-Server testen können. Sie können den Inspector z.B. so aufrufen, um Codex als MCP-Server zu starten:
+
+npx @modelcontextprotocol/inspector codex mcp-server
+
+
+Der Inspector bietet eine grafische Oberfläche, um MCP-Requests abzuschicken und die Antworten zu prüfen
+developers.openai.com
+.
+
+Wenn Codex als MCP-Server läuft, stellt es zwei Werkzeuge (tools) zur Verfügung: codex und codex-reply. Über codex kann ein Client (z.B. der Inspector oder ein anderer Agent) eine neue Codex-Sitzung mit einem Prompt starten; codex-reply dient dazu, eine laufende Sitzung mit weiterer Eingabe fortzusetzen
+developers.openai.com
+developers.openai.com
+. (Beispielsweise würde der Inspector nach tools/list diese beiden Tools anzeigen.)
+
+Tipp: Codex-Berechnungen können etwas Zeit beanspruchen. Wenn Sie den MCP-Inspector verwenden, erhöhen Sie ggf. das Timeout (z.B. auf 600 Sekunden), damit lange Codex-Aufgaben nicht vorzeitig abgebrochen werden
+developers.openai.com
+. So können Sie auch komplexe Aufgaben wie das Generieren eines Tic-Tac-Toe-Spiels im MCP-Modus ausprobieren.
+
+Schritt 4: Codex CLI mit dem eigenen MCP-Server verbinden
+
+Haben Sie einen eigenen MCP-Server implementiert oder Codex als MCP-Server gestartet, müssen Sie die Codex CLI nun mit diesem Server verbinden, damit Codex dessen Funktionen nutzen kann. Die Vorgehensweise ähnelt Schritt 1 (Hinzufügen in die Config):
+
+STDIO-Server anbinden: Wenn Ihr MCP-Server ein lokales Programm ist (STDIO), fügen Sie in ~/.codex/config.toml einen neuen Abschnitt unter [mcp_servers] ein. Verwenden Sie einen eindeutigen Namen. Geben Sie command und falls nötig args an, sodass Codex weiß, wie es Ihren Server-Prozess starten kann
+developers.openai.com
+. Beispiel:
+
+[mcp_servers.meintool]
+command = "/Pfad/zu/meinem_mcp_server"
+args = ["--option1", "wert1"]
+
+
+Wenn der Server Umgebungsvariablen braucht (API-Schlüssel o.ä.), tragen Sie diese unter [mcp_servers.meintool.env] ein
+developers.openai.com
+. Sobald Sie Codex CLI neu starten, wird es diesen Befehl ausführen und Ihren MCP-Server automatisch starten und verbinden.
+
+Remote/HTTP-Server anbinden: Falls Ihr MCP-Server als Webservice (Streamable HTTP) läuft, tragen Sie dessen URL ein. Beispiel:
+
+[mcp_servers.meinservice]
+url = "https://meinserver.example.com/mcp"
+bearer_token = "SECRET_TOKEN"  # falls Authentifizierung nötig
+
+
+Hier sorgt Codex dafür, bei jedem Start eine Verbindung zu meinserver herzustellen
+developers.openai.com
+. Ein bearer token im Header kann optional für geschützte APIs gesetzt werden
+developers.openai.com
+.
+
+Erweiterte Optionen: Bei Bedarf können Sie weitere Optionen konfigurieren, etwa Timeouts (startup_timeout_sec, tool_timeout_sec) falls Ihr Server langsam startet oder längere Aktionen ausführt
+developers.openai.com
+. Nutzen Sie diese Einstellungen, um das Verhalten zu optimieren. Sollte Ihr MCP-Server OAuth-Authentifizierung erfordern (oder falls Sie Remote-STDIO über RMCP nutzen möchten), aktivieren Sie den RMCP-Client in der Config:
+
+[features]
+rmcp_client = true
+
+
+Diese Einstellung (im globalen [features]-Abschnitt) ermöglicht OAuth bei HTTP-MCPs und erweiterte STDIO-Unterstützung
+developers.openai.com
+. Alternativ können Sie Codex auch mit --enable rmcp_client starten, um diese Funktion temporär zu aktivieren
+developers.openai.com
+.
+
+Fazit: Nach erfolgreicher Konfiguration greift die Codex CLI bei jedem Start automatisch auf die definierten MCP-Server zu
+developers.openai.com
+. Ihre eigenen MCP-Integrationen sind damit nahtlos eingebunden – Codex kann nun z.B. Dokumentationen abfragen oder andere Tools steuern, was Ihre Entwicklung deutlich effizienter macht. Viel Erfolg bei der Verwendung von MCP mit Codex CLI!
+
+Quellen: Die obigen Schritte basieren auf der offiziellen OpenAI Codex Dokumentation zum Model Context Protocol
+developers.openai.com
+developers.openai.com
+developers.openai.com
+developers.openai.com
+developers.openai.com
+developers.openai.com
+ und Community-Erfahrungen. Bitte beachten Sie stets die neueste Dokumentation, da sich Funktionen und Befehle ändern können.

@@ -1,0 +1,15 @@
+# CodexHive runtime artifacts
+instances/
+latest-log.txt
+mcp/codexctl.log
+mcp/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Local Codex CLI artifacts
+.codex/
+.codexhive/
+
+# OS/editor clutter
+.DS_Store
+Thumbs.db

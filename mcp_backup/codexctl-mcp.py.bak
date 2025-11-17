@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""CodexHive MCP server (newline-delimited JSON over stdio)."""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+
+from fastmcp import FastMCP
+
+# FastMCP inspects env vars at import time; configure banner/logging noise first.
+os.environ.setdefault("FASTMCP_SHOW_CLI_BANNER", "false")
+os.environ.setdefault("FASTMCP_LOG_LEVEL", "warning")
+
+
+def configure_logging() -> None:
+    """Log to the shared Windows path (fallback to ~/.codexhive)."""
+
+    primary = Path("/mnt/c/codexhive/mcp/codexctl.log")
+    fallback = Path.home() / ".codexhive" / "codexctl.log"
+
+    for path in (primary, fallback):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            logging.basicConfig(
+                filename=path,
+                level=logging.INFO,
+                format="%(asctime)sZ\t%(levelname)s\t%(message)s",
+                force=True,
+            )
+            logging.info("logging initialized at %s", path)
+            return
+        except PermissionError:
+            continue
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)sZ\t%(levelname)s\t%(message)s",
+        force=True,
+    )
+    logging.warning("Unable to create codexctl.log on any path; logging to stderr only")
+
+
+def maybe_send_server_ready() -> None:
+    """Emit notifications/serverReady for Codex CLI (newline-delimited JSON)."""
+
+    raw_flag = os.environ.get("CODEXHIVE_SEND_SERVER_READY", "1")
+    enabled = raw_flag.strip().lower() not in {"0", "false", "no"}
+    if not enabled:
+        logging.info(
+            "serverReady notification suppressed by CODEXHIVE_SEND_SERVER_READY=%s",
+            raw_flag,
+        )
+        return
+
+    message = {
+        "jsonrpc": "2.0",
+        "method": "notifications/serverReady",
+        "params": {},
+    }
+    payload = json.dumps(message, separators=(",", ":")).encode("utf-8") + b"\n"
+    os.write(sys.stdout.fileno(), payload)
+    logging.info("writeFrame id=no-id method=notifications/serverReady")
+
+
+configure_logging()
+mcp = FastMCP("codexhive-skeleton")
+
+
+@mcp.tool()
+def ping() -> str:
+    """Minimal liveness check."""
+    return "pong"
+
+
+if __name__ == "__main__":
+    logging.info("codexhive-skeleton starting via FastMCP (newline stdio)")
+    maybe_send_server_ready()
+    mcp.run()  # FastMCP default stdio transport uses newline-delimited JSON.
